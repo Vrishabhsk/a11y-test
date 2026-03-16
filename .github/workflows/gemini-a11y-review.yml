@@ -16,89 +16,75 @@ defaults:
 jobs:
   review:
     runs-on: 'ubuntu-latest'
-    timeout-minutes: 7
+    timeout-minutes: 10
     permissions:
       contents: 'read'
-      id-token: 'write'
-      issues: 'write'
       pull-requests: 'write'
+      issues: 'write'
     steps:
-      - name: 'Mint identity token'
-        id: 'mint_identity_token'
-        if: |-
-          ${{ vars.APP_ID }}
-        uses: 'actions/create-github-app-token@v2'
-        with:
-          app-id: '${{ vars.APP_ID }}'
-          private-key: '${{ secrets.APP_PRIVATE_KEY }}'
-          permission-contents: 'read'
-          permission-issues: 'write'
-          permission-pull-requests: 'write'
-
       - name: 'Checkout repository'
         uses: 'actions/checkout@v4'
         with:
           fetch-depth: 0
 
-      - name: 'Run Gemini pull request review'
+      - name: 'Get changed files'
+        id: 'changed_files'
+        run: |
+          echo "files=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...${{ github.head_ref }} | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: 'Run Gemini A11y Review'
+        id: 'gemini_review'
         uses: 'google-github-actions/run-gemini-cli@v0'
-        id: 'gemini_pr_review'
         env:
-          GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}'
-          ISSUE_TITLE: '${{ github.event.pull_request.title }}'
-          ISSUE_BODY: '${{ github.event.pull_request.body }}'
-          PULL_REQUEST_NUMBER: '${{ github.event.pull_request.number }}'
-          REPOSITORY: '${{ github.repository }}'
           GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
         with:
           gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
           gemini_cli_version: 'latest'
           gemini_model: 'gemini-2.5-flash'
           workflow_name: 'gemini-a11y-review'
-          github_pr_number: '${{ github.event.pull_request.number }}'
-          settings: |-
-            {
-              "model": {
-                "maxSessionTurns": 25
-              },
-              "telemetry": {
-                "enabled": true,
-                "target": "local",
-                "outfile": ".gemini/telemetry.log"
-              },
-              "mcpServers": {
-                "github": {
-                  "command": "docker",
-                  "args": [
-                    "run",
-                    "-i",
-                    "--rm",
-                    "-e",
-                    "GITHUB_PERSONAL_ACCESS_TOKEN",
-                    "ghcr.io/github/github-mcp-server:v0.27.0"
-                  ],
-                  "includeTools": [
-                    "add_comment_to_pending_review",
-                    "pull_request_read",
-                    "pull_request_review_write"
-                  ],
-                  "env": {
-                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
-                  }
-                }
-              },
-              "tools": {
-                "core": [
-                  "run_shell_command(cat)",
-                  "run_shell_command(echo)",
-                  "run_shell_command(grep)",
-                  "run_shell_command(head)",
-                  "run_shell_command(tail)"
-                ]
-              }
-            }
-          extensions: |
-            [
-              "https://github.com/gemini-cli-extensions/code-review"
-            ]
-          prompt: '/pr-code-review --instructions="Review this PR for WCAG 2.1/2.2 Level A and AA accessibility compliance. Check for: images without alt text, form inputs without labels, links without href, buttons without type, tables without headers, clickable elements without keyboard support, low contrast text, missing ARIA labels, empty headings, multiple H1 tags, unmarked required fields, links opening in new tabs without warning. Provide file paths, line numbers, problematic code, explanations, and corrected code examples."'
+          prompt: |
+            You are an expert accessibility (a11y) auditor.
+
+            Review the following files for WCAG 2.1/2.2 Level A and AA accessibility compliance:
+
+            Changed files: ${{ steps.changed_files.outputs.files }}
+
+            Check for these accessibility issues:
+            - Images without alt text
+            - Form inputs without labels (missing for/id association or aria-label)
+            - Links without href attributes
+            - Buttons without type attributes
+            - Tables without proper headers (missing th elements or scope)
+            - Clickable elements without keyboard support (onclick without onkeydown/tabindex)
+            - Low contrast text
+            - Missing ARIA labels for interactive elements
+            - Empty headings (h1-h6 with no content)
+            - Multiple H1 tags on a single page
+            - Links opening in new tabs without warning (target="_blank" without aria-label or warning text)
+            - Form fields without accessible names
+            - Required fields not indicated visually or via aria-required
+
+            For each violation found:
+            1. File path and approximate location
+            2. The problematic code pattern
+            3. Why it's an accessibility issue
+            4. How to fix it
+
+            Be thorough but concise. Format as a clean markdown list.
+
+      - name: 'Post review as PR comment'
+        if: always()
+        env:
+          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          PR_NUMBER: '${{ github.event.pull_request.number }}'
+          GEMINI_RESPONSE: '${{ steps.gemini_review.outputs.summary }}'
+        run: |
+          if [ -n "$GEMINI_RESPONSE" ] && [ "$GEMINI_RESPONSE" != "" ]; then
+            echo "## ♿ Accessibility Review Results" > /tmp/comment.md
+            echo "" >> /tmp/comment.md
+            echo "$GEMINI_RESPONSE" >> /tmp/comment.md
+            
+            gh pr comment "$PR_NUMBER" --body-file /tmp/comment.md --repo "${{ github.repository }}"
+          else
+            echo "No response from Gemini to post"
+          fi
