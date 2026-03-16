@@ -29,7 +29,8 @@ jobs:
           ISSUE_TITLE: '${{ github.event.pull_request.title }}'
           ISSUE_BODY: '${{ github.event.pull_request.body }}'
         with:
-          gemini_model: 'gemini-2.0-flash'
+          gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
+          gemini_model: 'gemini-2.5-flash'
           workflow_name: 'gemini-a11y-review'
           upload_artifacts: true
           settings: |-
