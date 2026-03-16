@@ -1,0 +1,45 @@
+name: Multi-Language Accessibility Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  detect-and-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Get changed files
+      id: changed-files
+      run: |
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          echo "files=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...HEAD | tr '\n' ' ')" >> $GITHUB_OUTPUT
+        else
+          echo "files=$(git diff --name-only --diff-filter=ACM HEAD~1 | tr '\n' ' ')" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Run accessibility tests
+      run: |
+        chmod +x .github/scripts/test-a11y.sh
+        .github/scripts/test-a11y.sh "${{ steps.changed-files.outputs.files }}"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

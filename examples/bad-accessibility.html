@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bad Accessibility Example</title>
+</head>
+<body>
+    <!-- Image without alt text -->
+    <img src="logo.png" width="200" height="100">
+    
+    <!-- Link without href -->
+    <a>Click here</a>
+    
+    <!-- Form without labels -->
+    <form>
+        <input type="text" placeholder="Enter name">
+        <input type="email" placeholder="Enter email">
+        <button>Submit</button>
+    </form>
+    
+    <!-- Table without headers -->
+    <table>
+        <tr>
+            <td>Product</td>
+            <td>Price</td>
+        </tr>
+        <tr>
+            <td>Widget</td>
+            <td>$10</td>
+        </tr>
+    </table>
+    
+    <!-- Button without type -->
+    <button>Click me</button>
+    
+    <!-- Div with click handler -->
+    <div onclick="alert('clicked')">Clickable div</div>
+    
+    <!-- Low contrast text -->
+    <p style="color: #eeeeee; background-color: #ffffff;">Low contrast text</p>
+</body>
+</html>
