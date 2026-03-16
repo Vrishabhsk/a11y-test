@@ -54,8 +54,8 @@ examples/
 
 ## How to Trigger Gemini Review
 
-- Comment `@gemini-a11y` on any pull request
-- Automatic review triggers on PR open
+- Automatic review triggers when a PR is opened
+- Requires `GEMINI_API_KEY` secret to be set in repository settings
 
 ## Coding Conventions
 
