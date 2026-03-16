@@ -143,6 +143,68 @@ test_template() {
     fi
 }
 
+# Function to test Python files (Frappe/Flask/Django)
+test_python() {
+    local file="$1"
+    echo "🧪 Testing Python file: $file"
+    
+    # Check for HTML strings in Python files
+    local violations=0
+    
+    # Check for images without alt in HTML strings
+    if grep -E 'img[^>]*>' "$file" | grep -v 'alt=' >/dev/null 2>&1; then
+        echo "   ⚠️  Found images without alt attribute in HTML"
+        violations=$((violations + 1))
+    fi
+    
+    # Check for links without href in HTML strings
+    if grep -E '<a[^>]*>.*</a>' "$file" | grep -v 'href=' >/dev/null 2>&1; then
+        echo "   ⚠️  Found links without href attribute in HTML"
+        violations=$((violations + 1))
+    fi
+    
+    # Check for form inputs without labels
+    if grep -E '<input[^>]*>' "$file" >/dev/null 2>&1; then
+        if ! grep -E '<label[^>]*>' "$file" >/dev/null 2>&1; then
+            echo "   ⚠️  Found form inputs without labels in HTML"
+            violations=$((violations + 1))
+        fi
+    fi
+    
+    # Check for buttons without type
+    if grep -E '<button[^>]*>' "$file" | grep -v 'type=' >/dev/null 2>&1; then
+        echo "   ⚠️  Found buttons without type attribute in HTML"
+        violations=$((violations + 1))
+    fi
+    
+    # Check for tables without headers
+    if grep -E '<table[^>]*>' "$file" >/dev/null 2>&1; then
+        if ! grep -E '<th[^>]*>' "$file" >/dev/null 2>&1; then
+            echo "   ⚠️  Found tables without header cells in HTML"
+            violations=$((violations + 1))
+        fi
+    fi
+    
+    # Check for click handlers on non-interactive elements
+    if grep -E 'onclick=' "$file" >/dev/null 2>&1; then
+        echo "   ⚠️  Found onclick handlers (ensure keyboard accessibility)"
+        violations=$((violations + 1))
+    fi
+    
+    # Check for empty headings
+    if grep -E '<h[1-6][^>]*>\s*</h[1-6]>' "$file" >/dev/null 2>&1; then
+        echo "   ⚠️  Found empty heading tags"
+        violations=$((violations + 1))
+    fi
+    
+    if [ $violations -eq 0 ]; then
+        echo "✅ $file passed Python a11y checks"
+    else
+        echo "❌ $file failed Python a11y checks ($violations violations)"
+        EXIT_CODE=1
+    fi
+}
+
 # Main loop
 for file in $CHANGED_FILES; do
     # Skip deleted files and non-existent files
@@ -171,6 +233,9 @@ for file in $CHANGED_FILES; do
             ;;
         *.twig|*.blade.php|*.erb|*.ejs|*.hbs)
             test_template "$file"
+            ;;
+        *.py)
+            test_python "$file"
             ;;
         *)
             echo "⏭️  Skipping $file (no a11y rules defined)"
