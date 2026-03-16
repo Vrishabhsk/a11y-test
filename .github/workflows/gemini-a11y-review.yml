@@ -45,31 +45,14 @@ jobs:
           gemini_cli_version: 'latest'
           workflow_name: 'gemini-a11y-review'
           prompt: |
-            You are a WCAG 2.1 and 2.2 accessibility expert. Review the changed files in this pull request for accessibility violations.
+            Analyze the files: ${{ steps.changed_files.outputs.files }} for WCAG 2.1/2.2 Level A and AA accessibility violations.
             
-            Files changed: ${{ steps.changed_files.outputs.files }}
+            Check for: missing alt text, form inputs without labels, links without href, buttons without type, tables without headers, keyboard inaccessible elements, low contrast, missing ARIA, empty headings, multiple H1, unmarked new window links.
             
-            Check for these WCAG Level A and AA accessibility issues:
-            - Images missing alt text
-            - Form inputs without labels
-            - Links without href attributes
-            - Buttons without type attributes
-            - Tables without proper headers
-            - Interactive elements without keyboard support
-            - Low contrast text
-            - Missing ARIA labels
-            - Empty headings
-            - Multiple H1 tags
-            - Links opening in new tabs without warning
-            - Required fields not indicated
+            IMPORTANT: Respond with ONLY valid JSON in this exact format:
+            {"response": "## Accessibility Review Results\n\n### Issue 1\n- **File**: filename.ext\n- **Line**: approximate line number\n- **Issue**: description\n- **Code**: `code snippet`\n- **Fix**: how to fix\n\n### Issue 2\n..."}
             
-            For each issue found:
-            1. File name
-            2. Description of the problem
-            3. Code snippet showing the issue
-            4. How to fix it
-            
-            Format response in Markdown. Only report actual issues.
+            If no issues found, respond with: {"response": "No accessibility violations found in the changed files."}
 
       - name: 'Post review as PR comment'
         if: always()
@@ -78,7 +61,7 @@ jobs:
           PR_NUMBER: '${{ github.event.pull_request.number }}'
           GEMINI_RESPONSE: '${{ steps.gemini_review.outputs.summary }}'
         run: |
-          if [ -n "$GEMINI_RESPONSE" ]; then
+          if [ -n "$GEMINI_RESPONSE" ] && [ "$GEMINI_RESPONSE" != "" ]; then
             echo "## ♿ Accessibility Review Results" > /tmp/comment.md
             echo "" >> /tmp/comment.md
             echo "$GEMINI_RESPONSE" >> /tmp/comment.md
@@ -86,4 +69,5 @@ jobs:
             gh pr comment "$PR_NUMBER" --body-file /tmp/comment.md --repo "${{ github.repository }}" || echo "Could not post comment"
           else
             echo "No response from Gemini to post"
+            echo "Debug: gemini_response was empty"
           fi
