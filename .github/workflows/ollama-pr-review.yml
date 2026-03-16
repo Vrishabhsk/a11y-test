@@ -20,7 +20,7 @@ jobs:
         uses: 'actions/checkout@v4'
 
       - name: 'Run Ollama Code Review'
-        uses: 'ray5273/ollama-pr-review-action@main'
+        uses: './.github/actions/ollama-pr-review'
         with:
           OLLAMA_API_URL: 'https://valued-learned-reflect-introduce.trycloudflare.com'
           MY_GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
