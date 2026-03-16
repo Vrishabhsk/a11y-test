@@ -45,6 +45,67 @@ def strip_markdown_fences(text):
     return stripped
 
 
+def normalize_review_structure(review_content, changes):
+    """
+    Fix malformed model output where FeedbackItem objects are placed directly
+    in the 'reviews' array instead of being nested inside FileReview objects.
+    """
+    if isinstance(review_content, str):
+        try:
+            data = json.loads(review_content)
+        except json.JSONDecodeError:
+            return review_content
+    else:
+        data = review_content
+
+    if not isinstance(data, dict) or 'reviews' not in data:
+        return review_content if isinstance(review_content, str) else json.dumps(data)
+
+    reviews = data['reviews']
+    if not reviews or not isinstance(reviews, list):
+        return review_content if isinstance(review_content, str) else json.dumps(data)
+
+    # Check if the first item looks like a FeedbackItem (has 'title') instead of FileReview (has 'filename')
+    first = reviews[0]
+    if isinstance(first, dict) and 'title' in first and 'filename' not in first:
+        print("Detected flat review structure from model. Restructuring...")
+
+        filenames = [c['filename'] for c in changes]
+        grouped = {}
+        for item in reviews:
+            target_file = filenames[0] if filenames else "unknown"
+            for fname in filenames:
+                short_name = fname.split('/')[-1]
+                item_str = json.dumps(item).lower()
+                if short_name.lower() in item_str or fname.lower() in item_str:
+                    target_file = fname
+                    break
+            if target_file not in grouped:
+                grouped[target_file] = []
+            grouped[target_file].append(item)
+
+        restructured = []
+        for filename, feedbacks in grouped.items():
+            risk_scores = [f.get('risk_score', 3) for f in feedbacks if 'risk_score' in f]
+            avg_risk = round(sum(risk_scores) / len(risk_scores)) if risk_scores else 3
+            clean_feedbacks = []
+            for f in feedbacks:
+                clean_feedbacks.append({
+                    'title': f.get('title', 'Issue'),
+                    'details': f.get('details', ''),
+                })
+            restructured.append({
+                'filename': filename,
+                'risk_score': avg_risk,
+                'feedback': clean_feedbacks
+            })
+
+        data['reviews'] = restructured
+        print(f"Restructured into {len(restructured)} file review(s) with {len(reviews)} total feedback items")
+
+    return json.dumps(data)
+
+
 def post_review_to_github(github_token, owner, repo, pr_number, review_body):
     headers = {
         'Authorization': f'token {github_token}',
@@ -191,6 +252,7 @@ def request_code_review(api_url, github_token, owner, repo, pr_number, model, cu
         # Parse structured response - strip markdown fences if present
         review_content = review_json['response'] if 'response' in review_json else review_json
         review_content = strip_markdown_fences(review_content)
+        review_content = normalize_review_structure(review_content, changes)
         review_data = CodeReviewResponse.model_validate_json(review_content)
 
         formatted_review = generate_review_response(review_data.reviews)
