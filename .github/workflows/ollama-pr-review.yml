@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
 
       - name: 'Run Ollama PR Review'
-        uses: 'ray5273/ollama-pr-review-action@v1'
+        uses: 'ray5273/ollama-pr-review-action@v1.0.0'
         with:
           OLLAMA_API_URL: 'https://valued-learned-reflect-introduce.trycloudflare.com'
           MY_GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
