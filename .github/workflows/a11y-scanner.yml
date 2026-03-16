@@ -1,0 +1,25 @@
+name: 'Accessibility Scanner'
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * MON'
+
+jobs:
+  accessibility_scanner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: 'github/accessibility-scanner@v2'
+        with:
+          urls: |
+            https://rtcamp.com
+            https://rtcamp.com/enterprise-wordpress-development/
+            https://rtcamp.com/business-inquiry/
+            https://rtcamp.com/wordpress-vip-gold-agency-partner/
+            https://rtcamp.com/industries/
+          repository: '${{ github.repository }}'
+          token: '${{ secrets.GH_TOKEN }}'
+          cache_key: 'rtcamp-a11y-scan'
+          include_screenshots: true
+          color_scheme: 'light'

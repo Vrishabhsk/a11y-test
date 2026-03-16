@@ -1,0 +1,60 @@
+name: 'Gemini A11y Review'
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.event.pull_request.number }}'
+  cancel-in-progress: true
+
+jobs:
+  gemini-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
+    steps:
+      - name: 'Checkout repository'
+        uses: 'actions/checkout@v4'
+
+      - name: 'Run Gemini A11y Review'
+        uses: 'sshnaidm/gemini-code-review-action@v2'
+        with:
+          gemini-key: '${{ secrets.GEMINI_API_KEY }}'
+          model: 'gemini-2.5-flash'
+          review-title: 'Gemini Accessibility Review'
+          add-files: 'true'
+          context-lines: '15'
+          prompt: |
+            You are an expert web accessibility (a11y) reviewer. Review the code changes ONLY for accessibility issues based on WCAG 2.1 and WCAG 2.2 guidelines.
+
+            Focus EXCLUSIVELY on these accessibility concerns:
+            - Missing or incorrect alt text on images (SC 1.1.1)
+            - Missing form labels or label associations (SC 1.3.1, SC 4.1.2)
+            - Heading hierarchy violations (SC 1.3.1)
+            - Semantic HTML misuse - divs instead of nav, header, footer, main, button (SC 1.3.1)
+            - Missing ARIA attributes on interactive widgets (SC 4.1.2)
+            - Keyboard inaccessibility - click handlers without keyboard support (SC 2.1.1)
+            - Missing focus management and focus indicators (SC 2.4.7, SC 2.4.11 WCAG 2.2)
+            - Color contrast issues (SC 1.4.3)
+            - Links without href or with generic text like "click here" (SC 2.4.4)
+            - Links opening in new tabs without warning (SC 3.2.5)
+            - Touch target size below 24x24px (SC 2.5.8 WCAG 2.2)
+            - Missing skip navigation (SC 2.4.1)
+            - Auto-playing content without pause controls (SC 2.2.2)
+            - Tables without proper headers (SC 1.3.1)
+
+            IGNORE all non-accessibility concerns (code style, performance, naming, etc).
+
+            For each issue:
+            1. Reference the WCAG success criterion (e.g. "SC 1.1.1 - Non-text Content")
+            2. Explain the accessibility barrier clearly
+            3. Provide the corrected code as a fix
+
+            Use severity levels:
+            - 🔴 Critical: Content completely inaccessible
+            - 🟠 High: Significant barrier for assistive technology users
+            - 🟡 Medium: Partial accessibility, needs improvement
+            - 🟢 Low: Best practice recommendation

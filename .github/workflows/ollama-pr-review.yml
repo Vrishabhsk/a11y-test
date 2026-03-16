@@ -1,10 +1,8 @@
-name: '🤖 Ollama PR Review (Custom)'
+name: 'Ollama Code Review'
 
 on:
-  push:
-    branches: [ main, master, test ]
   pull_request:
-    branches: [ main, master ]
+    types: [opened, synchronize]
 
 concurrency:
   group: '${{ github.workflow }}-${{ github.event.pull_request.number }}'
@@ -20,187 +18,14 @@ jobs:
     steps:
       - name: 'Checkout repository'
         uses: 'actions/checkout@v4'
+
+      - name: 'Run Ollama Code Review'
+        uses: './.github/actions/ollama-pr-review'
         with:
-          fetch-depth: 0
-
-      - name: 'Get PR diff'
-        id: 'get_diff'
-        run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
-          git diff origin/${{ github.event.pull_request.base.ref }}..HEAD > pr_diff.txt
-          echo "diff_file=pr_diff.txt" >> $GITHUB_OUTPUT
-          echo "pr_title=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
-          echo "pr_body=${{ github.event.pull_request.body }}" >> $GITHUB_OUTPUT
-
-      - name: 'Set up Python'
-        uses: 'actions/setup-python@v5'
-        with:
-          python-version: '3.12'
-
-      - name: 'Install dependencies'
-        run: |
-          pip install requests
-
-      - name: 'Run Ollama Review'
-        id: 'review'
-        env:
-          OLLAMA_API_URL: 'https://valued-learned-reflect-introduce.trycloudflare.com'
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          OLLAMA_API_URL: 'https://mountains-freedom-confidential-presents.trycloudflare.com'
+          MY_GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          OWNER: '${{ github.repository_owner }}'
+          REPO: '${{ github.event.repository.name }}'
           PR_NUMBER: '${{ github.event.pull_request.number }}'
-          REPO: '${{ github.repository }}'
-        run: |
-          python3 << 'EOF'
-          import requests
-          import json
-          import os
-          import re
-
-          # Read the diff
-          with open('pr_diff.txt', 'r') as f:
-              diff_content = f.read()
-
-          # Truncate if too long (Ollama has token limits)
-          if len(diff_content) > 15000:
-              diff_content = diff_content[:15000] + "\n... [diff truncated due to length]"
-
-          # Prepare the prompt
-          prompt = f"""You are a code reviewer. Review the following pull request diff and provide feedback in JSON format.
-
-Pull Request Title: {os.environ.get('PR_TITLE', 'N/A')}
-Pull Request Description: {os.environ.get('PR_BODY', 'N/A')}
-
-Code Diff:
-```diff
-{diff_content}
-```
-
-Provide your review as a JSON object with this exact structure:
-{{
-  "risk_score": <number 1-5>,
-  "summary": "<brief summary of changes>",
-  "issues": [
-    {{
-      "file": "<filename>",
-      "line": <line number>,
-      "severity": "<critical|high|medium|low>",
-      "message": "<description of issue>",
-      "suggestion": "<suggested fix>"
-    }}
-  ],
-  "positive_aspects": [
-    "<list of good practices found>"
-  ]
-}}
-
-Focus on:
-1. Code quality and best practices
-2. Potential bugs or issues
-3. Security vulnerabilities
-4. Performance optimizations
-5. Maintainability and readability
-
-Return ONLY the JSON object, no markdown formatting, no code blocks."""
-
-          # Call Ollama API
-          api_url = os.environ['OLLAMA_API_URL']
-          response = requests.post(
-              f"{api_url}/api/generate",
-              json={
-                  "model": "glm-5:cloud",
-                  "prompt": prompt,
-                  "stream": False,
-                  "format": "json"
-              },
-              timeout=300
-          )
-
-          if response.status_code != 200:
-              print(f"Error: API returned status {response.status_code}")
-              print(response.text)
-              exit(1)
-
-          result = response.json()
-          review_text = result.get('response', '')
-
-          # Try to extract JSON from the response
-          try:
-              # Try to find JSON in the response
-              json_match = re.search(r'\{.*\}', review_text, re.DOTALL)
-              if json_match:
-                  review_json = json.loads(json_match.group())
-              else:
-                  review_json = json.loads(review_text)
-          except json.JSONDecodeError as e:
-              print(f"Failed to parse JSON response: {e}")
-              print("Raw response:")
-              print(review_text)
-              # Create a fallback review
-              review_json = {
-                  "risk_score": 3,
-                  "summary": "Unable to parse automated review. Please check the code manually.",
-                  "issues": [],
-                  "positive_aspects": []
-              }
-
-          # Format the review for GitHub
-          risk_emoji = {1: "🟢", 2: "🟢", 3: "🟡", 4: "🟠", 5: "🔴"}.get(review_json.get('risk_score', 3), "🟡")
-          
-          review_body = f"""## 🤖 Ollama Code Review
-
-### Risk Assessment: {risk_emoji} {review_json.get('risk_score', 'N/A')}/5
-
-### Summary
-{review_json.get('summary', 'No summary provided')}
-
-### Issues Found
-"""
-
-          issues = review_json.get('issues', [])
-          if issues:
-              for issue in issues:
-                  severity_emoji = {
-                      "critical": "🔴",
-                      "high": "🟠", 
-                      "medium": "🟡",
-                      "low": "🟢"
-                  }.get(issue.get('severity', 'medium'), "🟡")
-                  
-                  review_body += f"""
-**{severity_emoji} {issue.get('severity', 'Unknown').upper()}** - {issue.get('file', 'Unknown file')}
-- **Line**: {issue.get('line', 'N/A')}
-- **Issue**: {issue.get('message', 'No description')}
-- **Suggestion**: {issue.get('suggestion', 'No suggestion provided')}
-"""
-          else:
-              review_body += "\n✅ No significant issues found!\n"
-
-          positive = review_json.get('positive_aspects', [])
-          if positive:
-              review_body += "\n### ✅ Positive Aspects\n"
-              for aspect in positive:
-                  review_body += f"- {aspect}\n"
-
-          # Post review as PR comment
-          github_token = os.environ['GITHUB_TOKEN']
-          repo = os.environ['REPO']
-          pr_number = os.environ['PR_NUMBER']
-
-          headers = {
-              "Authorization": f"Bearer {github_token}",
-              "Accept": "application/vnd.github.v3+json"
-          }
-
-          comment_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
-          comment_response = requests.post(
-              comment_url,
-              headers=headers,
-              json={"body": review_body}
-          )
-
-          if comment_response.status_code != 201:
-              print(f"Failed to post comment: {comment_response.status_code}")
-              print(comment_response.text)
-              exit(1)
-
-          print("Review posted successfully!")
-          EOF
+          MODEL: 'glm-5:cloud'
+          CUSTOM_PROMPT: 'You are an accessibility (a11y) expert reviewer. Review the code ONLY for accessibility issues based on WCAG 2.1 and WCAG 2.2 guidelines. Focus on: semantic HTML, ARIA attributes, keyboard navigation, focus management, color contrast, text alternatives for images, form labels, heading hierarchy, touch target sizes (WCAG 2.2), focus appearance (WCAG 2.2), and dragging alternatives (WCAG 2.2). Ignore all non-accessibility concerns. For each issue, reference the specific WCAG success criterion (e.g. SC 1.1.1, SC 2.4.7) in the feedback title. Make sure the top-level JSON has a "reviews" array field.'
