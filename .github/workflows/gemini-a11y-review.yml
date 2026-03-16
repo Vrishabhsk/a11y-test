@@ -5,18 +5,23 @@ on:
     types:
       - 'opened'
 
+concurrency:
+  group: '${{ github.workflow }}-review-${{ github.event_name }}-${{ github.event.pull_request.number }}'
+  cancel-in-progress: true
+
 defaults:
   run:
     shell: 'bash'
 
 jobs:
-  a11y-review:
+  review:
     runs-on: 'ubuntu-latest'
-    timeout-minutes: 10
+    timeout-minutes: 7
     permissions:
       contents: 'read'
+      id-token: 'write'
+      issues: 'write'
       pull-requests: 'write'
-    
     steps:
       - name: 'Mint identity token'
         id: 'mint_identity_token'
@@ -27,6 +32,7 @@ jobs:
           app-id: '${{ vars.APP_ID }}'
           private-key: '${{ secrets.APP_PRIVATE_KEY }}'
           permission-contents: 'read'
+          permission-issues: 'write'
           permission-pull-requests: 'write'
 
       - name: 'Checkout repository'
@@ -34,26 +40,37 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 'Run Gemini A11y PR Review'
+      - name: 'Run Gemini pull request review'
         uses: 'google-github-actions/run-gemini-cli@v0'
+        id: 'gemini_pr_review'
         env:
           GITHUB_TOKEN: '${{ steps.mint_identity_token.outputs.token || secrets.GITHUB_TOKEN || github.token }}'
+          ISSUE_TITLE: '${{ github.event.pull_request.title }}'
+          ISSUE_BODY: '${{ github.event.pull_request.body }}'
+          PULL_REQUEST_NUMBER: '${{ github.event.pull_request.number }}'
+          REPOSITORY: '${{ github.repository }}'
           GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
         with:
           gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
-          gemini_model: '${{ vars.GEMINI_MODEL }}'
           gemini_cli_version: 'latest'
-          upload_artifacts: true
+          gemini_model: 'gemini-2.5-flash'
           workflow_name: 'gemini-a11y-review'
+          github_pr_number: '${{ github.event.pull_request.number }}'
           settings: |-
             {
               "model": {
-                "maxSessionTurns": 30
+                "maxSessionTurns": 25
+              },
+              "telemetry": {
+                "enabled": true,
+                "target": "local",
+                "outfile": ".gemini/telemetry.log"
               },
               "mcpServers": {
                 "github": {
                   "command": "docker",
                   "args": [
+                    "run",
                     "-i",
                     "--rm",
                     "-e",
@@ -63,42 +80,25 @@ jobs:
                   "includeTools": [
                     "add_comment_to_pending_review",
                     "pull_request_read",
-                    "pull_request_reviews_read",
                     "pull_request_review_write"
                   ],
                   "env": {
                     "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
                   }
                 }
+              },
+              "tools": {
+                "core": [
+                  "run_shell_command(cat)",
+                  "run_shell_command(echo)",
+                  "run_shell_command(grep)",
+                  "run_shell_command(head)",
+                  "run_shell_command(tail)"
+                ]
               }
             }
           extensions: |
             [
               "https://github.com/gemini-cli-extensions/code-review"
             ]
-          prompt: |
-            You are an expert accessibility (a11y) auditor.
-            
-            Please review this pull request for WCAG 2.1 and 2.2 Level A and AA compliance.
-            
-            Focus on these critical accessibility issues:
-            - Images without alt text
-            - Form inputs without labels
-            - Links without href attributes
-            - Buttons without type attributes
-            - Tables without proper headers
-            - Clickable elements without keyboard support
-            - Low contrast text (insufficient color contrast)
-            - Missing ARIA labels for interactive elements
-            - Empty headings
-            - Multiple H1 tags on a single page
-            - Required fields not indicated
-            - Links that open in new tabs without warning
-            
-            For each violation found:
-            1. Identify the exact file and line number
-            2. Quote the problematic code
-            3. Explain why it's an accessibility issue
-            4. Provide a corrected code example
-            
-            Be thorough but concise. Prioritize critical issues that block users with disabilities.
+          prompt: '/pr-code-review --instructions="Review this PR for WCAG 2.1/2.2 Level A and AA accessibility compliance. Check for: images without alt text, form inputs without labels, links without href, buttons without type, tables without headers, clickable elements without keyboard support, low contrast text, missing ARIA labels, empty headings, multiple H1 tags, unmarked required fields, links opening in new tabs without warning. Provide file paths, line numbers, problematic code, explanations, and corrected code examples."'
