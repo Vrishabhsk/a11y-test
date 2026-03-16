@@ -35,11 +35,15 @@ We test against **WCAG 2.1 Level A and AA** compliance:
 ```
 .github/
 ├── workflows/
-│   ├── multi-lang-a11y.yml      # Multi-language static analysis
-│   ├── gemini-a11y-dispatch.yml  # Dispatch workflow for Gemini
-│   └── gemini-a11y-review-task.yml # Gemini review task
+│   ├── a11y.yml                  # Basic accessibility tests
+│   ├── multi-lang-a11y.yml       # Multi-language static analysis
+│   ├── gemini-a11y-dispatch.yml  # Dispatch workflow for Gemini A11y reviews
+│   └── gemini-a11y-review.yml    # Gemini A11y review task
 ├── scripts/
-│   └── test-a11y.sh             # Multi-language test script
+│   └── test-a11y.sh              # Multi-language test script
+.gemini/
+└── commands/
+    └── a11y-review.toml          # Custom WCAG 2.1/2.2 review prompt
 examples/
 ├── bad-accessibility.html        # HTML examples
 ├── wordpress-template.php        # WordPress examples
@@ -52,10 +56,36 @@ examples/
 2. **Component Testing**: jest-axe for React components
 3. **Gemini AI Review**: Automated PR review for a11y issues
 
-## How to Trigger Gemini Review
+## How to Trigger Gemini A11y Review
 
-- Automatic review triggers when a PR is opened
-- Requires `GEMINI_API_KEY` secret to be set in repository settings
+### Automatic Triggers
+- **PR Opened/Reopened**: When a pull request is opened or reopened against `main` or `master`
+- **PR Synchronized**: When new commits are pushed to an existing PR
+
+### Manual Triggers
+- Comment `@gemini-cli /a11y-review` on any PR to trigger a manual review
+- You can add additional context: `@gemini-cli /a11y-review focus on keyboard navigation`
+
+### Prerequisites
+1. **GEMINI_API_KEY**: Must be set in repository secrets (Settings > Secrets and variables > Actions)
+2. **GitHub Token**: The workflow uses `GITHUB_TOKEN` for PR interactions
+3. **Optional**: Set up a GitHub App for enhanced authentication (see `APP_ID` and `APP_PRIVATE_KEY`)
+
+### What Gets Reviewed
+The Gemini A11y Review focuses exclusively on:
+- **WCAG 2.1 Level A & AA** compliance
+- **WCAG 2.2** new success criteria
+- **Perceivable**: Alt text, color contrast, text resizing, reflow
+- **Operable**: Keyboard navigation, focus management, target size
+- **Understandable**: Form labels, error identification, language
+- **Robust**: Valid HTML, ARIA usage, semantic structure
+
+### Review Output
+- Inline comments on specific lines with WCAG violations
+- Severity levels: 🔴 Critical, 🟠 High, 🟡 Medium, 🟢 Low
+- WCAG success criterion references for each violation
+- Code suggestions for fixing violations
+- Summary with compliance overview
 
 ## Coding Conventions
 
