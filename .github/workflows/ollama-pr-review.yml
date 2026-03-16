@@ -1,0 +1,44 @@
+name: '🤖 Ollama PR Review'
+
+on:
+  pull_request:
+    branches: [ main, master ]
+    types: [ opened, synchronize, reopened ]
+
+concurrency:
+  group: '${{ github.workflow }}-${{ github.event.pull_request.number }}'
+  cancel-in-progress: true
+
+jobs:
+  ollama-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: 'read'
+      pull-requests: 'write'
+    steps:
+      - name: 'Checkout repository'
+        uses: 'actions/checkout@v4'
+        with:
+          fetch-depth: 0
+
+      - name: 'Run Ollama PR Review'
+        uses: 'ray5273/ollama-pr-review-action@v1'
+        with:
+          OLLAMA_API_URL: 'https://valued-learned-reflect-introduce.trycloudflare.com'
+          MY_GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          OWNER: '${{ github.repository_owner }}'
+          REPO: '${{ github.event.repository.name }}'
+          PR_NUMBER: '${{ github.event.pull_request.number }}'
+          MODEL: 'glm-5:cloud'
+          TRANSLATION_MODEL: 'glm-5:cloud'
+          RESPONSE_LANGUAGE: 'English'
+          CUSTOM_PROMPT: |
+            Please review this code for:
+            1. Code quality and best practices
+            2. Potential bugs or issues
+            3. Security vulnerabilities
+            4. Performance optimizations
+            5. Maintainability and readability
+            
+            Provide specific, actionable feedback with code examples where applicable.

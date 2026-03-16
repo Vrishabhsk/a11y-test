@@ -38,7 +38,10 @@ We test against **WCAG 2.1 Level A and AA** compliance:
 │   ├── a11y.yml                  # Basic accessibility tests
 │   ├── multi-lang-a11y.yml       # Multi-language static analysis
 │   ├── gemini-a11y-dispatch.yml  # Dispatch workflow for Gemini A11y reviews
-│   └── gemini-a11y-review.yml    # Gemini A11y review task
+│   ├── gemini-a11y-review.yml    # Gemini A11y review task
+│   ├── ollama-pr-review.yml      # Ollama general code review
+│   ├── GEMINI_A11Y_README.md     # Gemini A11y documentation
+│   └── OLLAMA_REVIEW_README.md   # Ollama review documentation
 ├── scripts/
 │   └── test-a11y.sh              # Multi-language test script
 .gemini/
@@ -55,6 +58,7 @@ examples/
 1. **Static Analysis**: ESLint + html-validate + custom patterns
 2. **Component Testing**: jest-axe for React components
 3. **Gemini AI Review**: Automated PR review for a11y issues
+4. **Ollama Code Review**: General code quality review using local LLM
 
 ## How to Trigger Gemini A11y Review
 
@@ -86,6 +90,45 @@ The Gemini A11y Review focuses exclusively on:
 - WCAG success criterion references for each violation
 - Code suggestions for fixing violations
 - Summary with compliance overview
+
+## How to Trigger Ollama Code Review
+
+### Automatic Triggers
+- **PR Opened/Reopened/Synchronize**: Automatically runs on all PRs to `main` or `master`
+
+### What Gets Reviewed
+The Ollama Code Review provides general code quality analysis:
+- **Code Quality**: Best practices and conventions
+- **Bug Detection**: Logic errors and edge cases
+- **Security**: Vulnerability identification
+- **Performance**: Optimization opportunities
+- **Maintainability**: Code structure and readability
+
+### Review Output
+- Risk score (1-5 scale)
+- Detailed comments on issues
+- Code suggestions with examples
+- Security and performance notes
+
+### Configuration
+- **Model**: `glm-5:cloud` (cloud-hosted, no GPU required)
+- **Translation**: `glm-5:cloud` (same model for both tasks)
+- **Language**: English (configurable)
+- **Ollama URL**: `https://valued-learned-reflect-introduce.trycloudflare.com`
+
+### No Setup Required
+Unlike Gemini, this workflow uses the built-in `GITHUB_TOKEN` and connects to a cloud-hosted Ollama server with `glm-5:cloud`. No additional secrets or local GPU needed!
+
+## AI Review Comparison
+
+| Feature | Gemini A11y Review | Ollama PR Review |
+|---------|-------------------|------------------|
+| **Focus** | Accessibility (WCAG) | General code quality |
+| **Trigger** | `@gemini-cli /a11y-review` or automatic | Automatic on all PRs |
+| **Model** | Google Gemini API | Local Ollama (qwen2.5-coder) |
+| **Cost** | Requires API key | Free (self-hosted) |
+| **Setup** | Requires `GEMINI_API_KEY` secret | No setup needed |
+| **Scope** | A11y violations only | Full code review |
 
 ## Coding Conventions
 
