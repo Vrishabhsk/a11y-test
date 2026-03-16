@@ -22,7 +22,7 @@ jobs:
       - name: 'Run Ollama Code Review'
         uses: './.github/actions/ollama-pr-review'
         with:
-          OLLAMA_API_URL: 'https://valued-learned-reflect-introduce.trycloudflare.com'
+          OLLAMA_API_URL: 'https://mountains-freedom-confidential-presents.trycloudflare.com'
           MY_GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
           OWNER: '${{ github.repository_owner }}'
           REPO: '${{ github.event.repository.name }}'
