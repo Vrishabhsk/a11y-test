@@ -19,11 +19,7 @@ jobs:
             https://www.w3.org/WAI/demos/bad/before/survey.html
             https://www.w3.org/WAI/demos/bad/before/citylights.html
           repository: '${{ github.repository }}'
-<<<<<<< Updated upstream
-          token: '${{ secrets.GH_TOKEN }}'
-=======
           token: '${{ secrets.GITHUB_TOKEN }}'
->>>>>>> Stashed changes
           cache_key: 'w3c-bad-demo-scan'
           include_screenshots: true
           color_scheme: 'light'
