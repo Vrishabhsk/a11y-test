@@ -4,9 +4,10 @@ on:
   pull_request:
     types:
       - 'opened'
+      - 'synchronize'
 
 concurrency:
-  group: '${{ github.workflow }}-review-${{ github.event_name }}-${{ github.event.pull_request.number }}'
+  group: '${{ github.workflow }}-review-${{ github.event.pull_request.number }}'
   cancel-in-progress: true
 
 defaults:
@@ -20,7 +21,6 @@ jobs:
     permissions:
       contents: 'read'
       pull-requests: 'write'
-      issues: 'write'
     steps:
       - name: 'Checkout repository'
         uses: 'actions/checkout@v4'
@@ -30,7 +30,10 @@ jobs:
       - name: 'Get changed files'
         id: 'changed_files'
         run: |
-          echo "files=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...${{ github.head_ref }} | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          FILES=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...HEAD 2>/dev/null || git diff --name-only --diff-filter=ACM HEAD~1)
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+          echo "Changed files:"
+          echo "$FILES"
 
       - name: 'Run Gemini A11y Review'
         id: 'gemini_review'
@@ -40,37 +43,33 @@ jobs:
         with:
           gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
           gemini_cli_version: 'latest'
-          gemini_model: 'gemini-2.5-flash'
           workflow_name: 'gemini-a11y-review'
           prompt: |
-            You are an expert accessibility (a11y) auditor.
-
-            Review the following files for WCAG 2.1/2.2 Level A and AA accessibility compliance:
-
-            Changed files: ${{ steps.changed_files.outputs.files }}
-
-            Check for these accessibility issues:
-            - Images without alt text
-            - Form inputs without labels (missing for/id association or aria-label)
+            You are a WCAG 2.1 and 2.2 accessibility expert. Review the changed files in this pull request for accessibility violations.
+            
+            Files changed: ${{ steps.changed_files.outputs.files }}
+            
+            Check for these WCAG Level A and AA accessibility issues:
+            - Images missing alt text
+            - Form inputs without labels
             - Links without href attributes
             - Buttons without type attributes
-            - Tables without proper headers (missing th elements or scope)
-            - Clickable elements without keyboard support (onclick without onkeydown/tabindex)
+            - Tables without proper headers
+            - Interactive elements without keyboard support
             - Low contrast text
-            - Missing ARIA labels for interactive elements
-            - Empty headings (h1-h6 with no content)
-            - Multiple H1 tags on a single page
-            - Links opening in new tabs without warning (target="_blank" without aria-label or warning text)
-            - Form fields without accessible names
-            - Required fields not indicated visually or via aria-required
-
-            For each violation found:
-            1. File path and approximate location
-            2. The problematic code pattern
-            3. Why it's an accessibility issue
+            - Missing ARIA labels
+            - Empty headings
+            - Multiple H1 tags
+            - Links opening in new tabs without warning
+            - Required fields not indicated
+            
+            For each issue found:
+            1. File name
+            2. Description of the problem
+            3. Code snippet showing the issue
             4. How to fix it
-
-            Be thorough but concise. Format as a clean markdown list.
+            
+            Format response in Markdown. Only report actual issues.
 
       - name: 'Post review as PR comment'
         if: always()
@@ -79,12 +78,12 @@ jobs:
           PR_NUMBER: '${{ github.event.pull_request.number }}'
           GEMINI_RESPONSE: '${{ steps.gemini_review.outputs.summary }}'
         run: |
-          if [ -n "$GEMINI_RESPONSE" ] && [ "$GEMINI_RESPONSE" != "" ]; then
+          if [ -n "$GEMINI_RESPONSE" ]; then
             echo "## ♿ Accessibility Review Results" > /tmp/comment.md
             echo "" >> /tmp/comment.md
             echo "$GEMINI_RESPONSE" >> /tmp/comment.md
             
-            gh pr comment "$PR_NUMBER" --body-file /tmp/comment.md --repo "${{ github.repository }}"
+            gh pr comment "$PR_NUMBER" --body-file /tmp/comment.md --repo "${{ github.repository }}" || echo "Could not post comment"
           else
             echo "No response from Gemini to post"
           fi
