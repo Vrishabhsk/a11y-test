@@ -13,13 +13,13 @@ jobs:
       - uses: 'github/accessibility-scanner@v2'
         with:
           urls: |
-            https://rtcamp.com
-            https://rtcamp.com/enterprise-wordpress-development/
-            https://rtcamp.com/business-inquiry/
-            https://rtcamp.com/wordpress-vip-gold-agency-partner/
-            https://rtcamp.com/industries/
+            https://www.w3.org/WAI/demos/bad/before/home.html
+            https://www.w3.org/WAI/demos/bad/before/news.html
+            https://www.w3.org/WAI/demos/bad/before/tickets.html
+            https://www.w3.org/WAI/demos/bad/before/survey.html
+            https://www.w3.org/WAI/demos/bad/before/citylights.html
           repository: '${{ github.repository }}'
           token: '${{ secrets.GH_TOKEN }}'
-          cache_key: 'rtcamp-a11y-scan'
+          cache_key: 'w3c-bad-demo-scan'
           include_screenshots: true
           color_scheme: 'light'
