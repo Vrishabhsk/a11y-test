@@ -264,6 +264,28 @@ export function BadAccessibility() {
           Hidden content only visible on hover
         </div>
       </div>
+
+      {/* Slider without ARIA attributes */}
+      <input type="range" min="0" max="100" />
+
+      {/* Modal overlay without focus trap or ARIA */}
+      <div style={{ 
+        position: 'fixed', 
+        top: '0', 
+        left: '0', 
+        width: '100%', 
+        height: '100%',
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ background: 'white', padding: '20px', width: '300px' }}>
+          <h3>Modal</h3>
+          <p>This is a modal dialog</p>
+          <button>Close</button>
+        </div>
+      </div>
     </div>
   );
 }
