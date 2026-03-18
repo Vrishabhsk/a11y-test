@@ -1,0 +1,45 @@
+name: Accessibility PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+
+jobs:
+  a11y-review:
+    runs-on: ubuntu-latest
+
+    # Prevent concurrent runs on the same PR
+    concurrency:
+      group: a11y-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Accessibility Review
+        uses: beastmaster65/a11y-pr-review-action@v1
+        with:
+          llm-backend: 'gemini'
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          gemini-model: 'gemini-3.1-flash-lite-preview'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          severity-threshold: 'SUGGESTION'
+          max-issues: '50'
+        continue-on-error: true
+
+      - name: Review Summary
+        if: always()
+        run: |
+          echo "### 🔍 Accessibility Review Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Issues found: ${{ steps.review.outputs.issues-found }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Critical: ${{ steps.review.outputs.critical-count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Important: ${{ steps.review.outputs.important-count }}" >> $GITHUB_STEP_SUMMARY

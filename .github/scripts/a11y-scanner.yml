@@ -1,0 +1,30 @@
+name: 'Accessibility Scanner'
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * MON'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write   
+
+jobs:
+  accessibility_scanner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: 'github/accessibility-scanner@v2'
+        with:
+          urls: |
+            https://www.w3.org/WAI/demos/bad/before/home.html
+            https://www.w3.org/WAI/demos/bad/before/news.html
+            https://www.w3.org/WAI/demos/bad/before/tickets.html
+            https://www.w3.org/WAI/demos/bad/before/survey.html
+            https://www.w3.org/WAI/demos/bad/before/citylights.html
+          repository: '${{ github.repository }}'
+          token: '${{ secrets.GITHUB_TOKEN }}'
+          cache_key: 'w3c-bad-demo-scan'
+          include_screenshots: true
+          color_scheme: 'light'
