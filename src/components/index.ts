@@ -19,16 +19,22 @@ export { LowContrastText, LowContrastButton, LowContrastLink, PlaceholderText, D
 export { BadButton, BadButtonNoFocus, IconButton } from './BadButton';
 
 // WCAG 2.4.4 - Link Purpose
-export { BadLinks, DuplicateLinks, ImageLink, IconLink } from './BadLinks';
-
-// WCAG 2.4.7 - Focus Visible
-export { BadButtonNoFocus } from './BadButton';
+export { BadLinks, DuplicateLinks, IconLink } from './BadLinks';
 
 // WCAG 3.3.1 & 3.3.2 - Error Identification & Labels
 export { BadForm, SearchForm } from './BadForm';
 
 // WCAG 4.1.2 - Name, Role, Value
 export { BadModal, BadDropdown, BadTabs, BadAccordion } from './BadModal';
+
+// WCAG 2.4.1, 2.4.8 - Navigation
+export { BadNavigation, BadBreadcrumb, BadPagination, BadMenu, BadSkipLink } from './BadNavigation';
+
+// WCAG 1.3.1 - Tables
+export { BadTable, BadDataTable, BadComplexTable, BadLayoutTable, BadGrid } from './BadTable';
+
+// WCAG 4.1.3 - Status Messages
+export { BadLiveRegion, BadAlert, BadProgress, BadLoadingSpinner, BadDynamicList, BadSearchResults } from './BadLiveRegion';
 
 // Aggregated page with all violations
 export { BadPage } from './BadPage';

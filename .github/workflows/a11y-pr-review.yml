@@ -26,13 +26,12 @@ jobs:
           fetch-depth: 0
 
       - name: Accessibility Review
-        uses: Vrishabhsk/a11y-pr-review@v5.3
+        uses: Vrishabhsk/a11y-pr-review@v5.4
         with:
           llm-backend: 'gemini'
           api-key: ${{ secrets.GEMINI_API_KEY }}
           model: 'gemini-3.1-flash-lite-preview'
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          
 
       - name: Review Summary
         if: always()
