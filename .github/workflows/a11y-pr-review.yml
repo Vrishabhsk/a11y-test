@@ -28,11 +28,9 @@ jobs:
         uses: Vrishabhsk/a11y-pr-review@v4
         with:
           llm-backend: 'gemini'
-          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
-          gemini-model: 'gemini-3.1-flash-lite-preview'
+          api-key: ${{ secrets.GEMINI_API_KEY }}
+          model: 'gemini-3.1-flash-lite-preview'
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          severity-threshold: 'SUGGESTION'
-          max-issues: '50'
         continue-on-error: true
 
       - name: Review Summary
