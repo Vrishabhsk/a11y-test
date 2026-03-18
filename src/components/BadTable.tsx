@@ -133,3 +133,58 @@ export function BadGrid({ items }: { items: { id: string; name: string; status: 
     </div>
   );
 }
+
+/**
+ * BAD MERGED CELLS - Merged cells without proper header associations
+ */
+export function BadMergedCells() {
+  return (
+    <div>
+      {/* VIOLATION: 1.3.1 - Merged cells (colspan/rowspan) without headers/id associations */}
+      <table border={1}>
+        <tr>
+          <th>Region</th>
+          <th>Product</th>
+          <th>Sales</th>
+        </tr>
+        <tr>
+          <td rowSpan={2}>East</td>
+          <td>A</td>
+          <td>$1000</td>
+        </tr>
+        <tr>
+          <td>B</td>
+          <td>$2000</td>
+        </tr>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * BAD EMPTY CELLS - Table with missing data
+ */
+export function BadEmptyCells() {
+  return (
+    <div>
+      {/* VIOLATION: 1.3.1 - Empty cells without proper identification of missing data */}
+      <table border={1}>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Phone</th>
+        </tr>
+        <tr>
+          <td>John Doe</td>
+          <td></td>
+          <td>555-1234</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>jane@example.com</td>
+          <td></td>
+        </tr>
+      </table>
+    </div>
+  );
+}
