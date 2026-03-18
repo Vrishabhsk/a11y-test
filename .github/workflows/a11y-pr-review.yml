@@ -8,6 +8,7 @@ permissions:
   contents: read
   pull-requests: write
   actions: read
+  checks: write
 
 jobs:
   a11y-review:
@@ -25,13 +26,13 @@ jobs:
           fetch-depth: 0
 
       - name: Accessibility Review
-        uses: Vrishabhsk/a11y-pr-review@v5.2
+        uses: Vrishabhsk/a11y-pr-review@v5.3
         with:
           llm-backend: 'gemini'
           api-key: ${{ secrets.GEMINI_API_KEY }}
           model: 'gemini-3.1-flash-lite-preview'
           github-token: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
+          
 
       - name: Review Summary
         if: always()
