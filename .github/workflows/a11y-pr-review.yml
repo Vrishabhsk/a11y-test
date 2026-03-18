@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 0
 
       - name: Accessibility Review
-        uses: Vrishabhsk/a11y-pr-review@v7.1
+        uses: Vrishabhsk/a11y-pr-review@v11
         with:
           llm-backend: 'gemini'
           api-key: ${{ secrets.GEMINI_API_KEY }}
