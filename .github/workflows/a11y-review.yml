@@ -30,7 +30,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           llm-backend: "gemini"
-          api-key: ${{ secrets.OLLAMA_API_KEY }} # Required for ollama.com
+          api-key: ${{ secrets.GEMINI_API_KEY }} # Required for ollama.com
           model: "gemini-3.1-flash-lite-preview" # or use -cloud suffix models
           # ollama-url: "https://ollama.com"
 
