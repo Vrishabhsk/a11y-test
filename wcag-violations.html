@@ -1,33 +1,33 @@
-i<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>WCAG 2.2 Violations Demo</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
-        .low-contrast { color: #cccccc; background: #ffffff; }
-        .no-focus { outline: none; }
-        .small-target { padding: 2px 5px; }
+        .low-contrast { color: #757575; background: #ffffff; }
+        .small-target { padding: 10px 16px; min-height: 24px; min-width: 24px; }
     </style>
 </head>
 <body>
     <h1>Accessibility Violations</h1>
 
-    <img src="photo.jpg" alt="">
+    <img src="photo.jpg" alt="Photo of a landscape">
 
     <div class="low-contrast">
-        <p>This text has very low contrast ratio.</p>
+        <p>This text has acceptable contrast ratio.</p>
     </div>
 
-    <a href="#" class="no-focus" tabindex="0">Click here</a>
+    <a href="#">Click here</a>
 
-    <input type="text" placeholder="Name" aria-label="">
+    <input type="text" placeholder="Name" aria-label="Enter your name">
 
     <button class="small-target" onclick="doSomething()">X</button>
 
     <form>
-        <input type="text" placeholder="Search">
-        <button>Go</button>
+        <label for="search">Search</label>
+        <input type="text" id="search" placeholder="Search">
+        <button type="submit">Go</button>
     </form>
 </body>
 </html>
