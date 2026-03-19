@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 0
 
       - name: Accessibility Review
-        uses: Vrishabhsk/a11y-pr-review@v12.1
+        uses: Vrishabhsk/a11y-pr-review@v12.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           llm-backend: 'ollama'
