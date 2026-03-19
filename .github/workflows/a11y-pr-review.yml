@@ -31,7 +31,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           llm-backend: 'ollama'
           api-key: ${{ secrets.OLLAMA_API_KEY }}  # Required for ollama.com
-          model: 'minimax-m2.7:cloud'  # or use -cloud suffix models
+          model: 'glm-5:cloud'  # or use -cloud suffix models
           ollama-url: 'https://ollama.com'
 
       - name: Review Summary
