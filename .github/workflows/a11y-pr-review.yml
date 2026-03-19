@@ -28,10 +28,11 @@ jobs:
       - name: Accessibility Review
         uses: Vrishabhsk/a11y-pr-review@v11.4
         with:
-          llm-backend: 'gemini'
-          api-key: ${{ secrets.GEMINI_API_KEY }}
-          model: 'gemini-3-flash-preview'
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          llm-backend: 'ollama'
+          api-key: ${{ secrets.OLLAMA_API_KEY }}  # Required for ollama.com
+          model: 'glm-5:cloud'  # or use -cloud suffix models
+          ollama-url: 'https://ollama.com'
 
       - name: Review Summary
         if: always()
