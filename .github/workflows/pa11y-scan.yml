@@ -44,8 +44,8 @@ jobs:
 
       - name: Run Pa11y scans
         run: |
-          echo "${{ inputs.urls }}" | while IFS= read -r url; do
+          while IFS= read -r url; do
             echo "Scanning: $url"
-            pa11y --standard ${{ inputs.standard }} --config ./pa11y.json "$url" || true
+            pa11y --standard ${{ inputs.standard }} --config ./pa11y.json "$url"
             echo "---"
-          done
+          done <<< "${{ inputs.urls }}"
