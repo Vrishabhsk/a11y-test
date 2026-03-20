@@ -17,72 +17,137 @@ jobs:
         with:
           node-version: 'lts/*'
 
+      - name: Create scanner script
+        run: |
+           cat > scan.js << 'SCRIPT'
+           const { run } = require('testaro');
+           const fs = require('fs');
+
+           async function main() {
+             const urls = process.env.URLS.split('\n').filter(u => u.trim());
+             const runId = process.env.RUN_ID;
+             let totalViolations = 0;
+             const reports = [];
+
+             for (const url of urls) {
+               console.log(`Scanning: ${url}`);
+               
+               const job = {
+                 id: `scan-${runId}`,
+                 what: 'Accessibility scan',
+                 strict: true,
+                 standard: 'only',
+                 device: 'default',
+                 browserID: 'chromium',
+                 target: { url },
+                 acts: [
+                   { type: 'launch' },
+                   { type: 'test', which: 'alfa' },
+                   { type: 'test', which: 'aslint' },
+                   { type: 'test', which: 'axe' },
+                   { type: 'test', which: 'ed11y' },
+                   { type: 'test', which: 'htmlcs' },
+                   { type: 'test', which: 'ibm' },
+                   { type: 'test', which: 'nuVal' },
+                   { type: 'test', which: 'qualWeb' },
+                   { type: 'test', which: 'testaro' }
+                 ]
+               };
+
+               try {
+                 const result = await run(job);
+                 const totals = result.jobData?.totals || [0, 0, 0, 0];
+                 const violations = totals.reduce((a, b) => a + b, 0);
+                 
+                 if (violations > 0) {
+                   console.log(`VIOLATIONS FOUND in ${url}: ${violations}`);
+                   totalViolations += violations;
+                 } else {
+                   console.log(`No violations in ${url}`);
+                 }
+                 
+                 reports.push({ url, result, totals });
+               } catch (error) {
+                 console.error(`Error scanning ${url}:`, error.message);
+                 reports.push({ url, error: error.message });
+               }
+             }
+
+             // Generate HTML report
+             let html = `<!DOCTYPE html>
+           <html>
+           <head>
+             <title>Accessibility Report - ${runId}</title>
+             <style>
+               body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+               h1 { color: #333; }
+               .url { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+               .violations { color: #c00; font-weight: bold; }
+               .pass { color: #0a0; }
+               .details { margin-top: 10px; font-size: 14px; }
+               table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+               th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+               th { background: #f0f0f0; }
+             </style>
+           </head>
+           <body>
+             <h1>Accessibility Scan Report</h1>
+             <p>Run ID: ${runId}</p>
+             <p>Total URLs scanned: ${urls.length}</p>
+             <p>Total violations: ${totalViolations}</p>
+           `;
+
+             for (const report of reports) {
+               const hasError = report.error;
+               const totals = report.totals || [0, 0, 0, 0];
+               const violations = totals.reduce((a, b) => a + b, 0);
+               
+               html += `
+             <div class="url">
+               <h3>${report.url}</h3>
+               ${hasError 
+                 ? `<p class="violations">Error: ${report.error}</p>`
+                 : violations > 0
+                   ? `<p class="violations">${violations} violations found</p>
+                      <table>
+                        <tr><th>Critical</th><th>Serious</th><th>Moderate</th><th>Minor</th></tr>
+                        <tr><td>${totals[0]}</td><td>${totals[1]}</td><td>${totals[2]}</td><td>${totals[3]}</td></tr>
+                      </table>`
+                   : `<p class="pass">No violations found</p>`
+               }
+             </div>`;
+             }
+
+             html += `
+           </body>
+           </html>`;
+
+             fs.writeFileSync('report.html', html);
+
+             if (totalViolations > 0) {
+               console.log(`\nTOTAL VIOLATIONS: ${totalViolations}`);
+               process.exit(1);
+             }
+             console.log('\nNo violations found');
+           }
+
+           main().catch(err => {
+             console.error('Fatal error:', err);
+             process.exit(1);
+           });
+           SCRIPT
+
       - name: Install Testaro and Playwright
         run: |
+          npm init -y
           npm install testaro playwright
           npx playwright install chromium
 
-      - name: Create Testaro job configuration
-        run: |
-           cat > testaro-job.json << 'EOF'
-           {
-             "id": "scan-${{ github.run_id }}",
-             "what": "Accessibility scan",
-             "strict": true,
-             "standard": "only",
-             "device": "default",
-             "browserID": "chromium",
-             "target": {},
-             "acts": [
-               { "type": "launch" },
-               { "type": "test", "which": "alfa" },
-               { "type": "test", "which": "aslint" },
-               { "type": "test", "which": "axe" },
-               { "type": "test", "which": "ed11y" },
-               { "type": "test", "which": "htmlcs" },
-               { "type": "test", "which": "ibm" },
-               { "type": "test", "which": "nuVal" },
-               { "type": "test", "which": "qualWeb" },
-               { "type": "test", "which": "testaro" }
-             ]
-           }
-           EOF
-
-      - name: Create update script
-        run: |
-           cat > update-job.js << 'EOF'
-           const fs = require('fs');
-           const url = process.argv[2];
-           const job = JSON.parse(fs.readFileSync('testaro-job.json', 'utf8'));
-           job.target = { url };
-           fs.writeFileSync('scan-job.json', JSON.stringify(job));
-           EOF
-
-      - name: Run Testaro scans
-        run: |
-          violations=0
-          while IFS= read -r url; do
-            echo "Scanning: $url"
-
-            # Update job with target URL using node script
-            node update-job.js "$url"
-
-            # Run testaro
-            npx testaro scan scan-job.json --reporter html > report.html 2>&1
-
-            # Check for violations - look for any non-zero counts in totals array
-            # totals format: [critical, serious, moderate, minor] - any value > 0 means violations
-            if grep -qE '"totals":\s*\[[1-9]|[0-9]{2,}' report.html; then
-              echo "VIOLATIONS FOUND in $url"
-              violations=$((violations + 1))
-            fi
-          done <<< "${{ inputs.urls }}"
-
-          if [ $violations -gt 0 ]; then
-            echo "Total URLs with violations: $violations"
-            exit 1
-          fi
-          echo "No violations found"
+      - name: Run scanner
+        env:
+          URLS: ${{ inputs.urls }}
+          RUN_ID: ${{ github.run_id }}
+        run: node scan.js
 
       - name: Upload HTML Report
         uses: actions/upload-artifact@v4
@@ -91,7 +156,3 @@ jobs:
           name: a11y-report-${{ github.run_id }}
           path: report.html
           retention-days: 30
-
-      - name: Report results
-        run: |
-          echo "Scan completed. Check artifact for detailed HTML report."
