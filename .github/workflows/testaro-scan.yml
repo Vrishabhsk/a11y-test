@@ -48,14 +48,24 @@ jobs:
            }
            EOF
 
+      - name: Create update script
+        run: |
+           cat > update-job.js << 'EOF'
+           const fs = require('fs');
+           const url = process.argv[2];
+           const job = JSON.parse(fs.readFileSync('testaro-job.json', 'utf8'));
+           job.target = { url };
+           fs.writeFileSync('scan-job.json', JSON.stringify(job));
+           EOF
+
       - name: Run Testaro scans
         run: |
           violations=0
           while IFS= read -r url; do
             echo "Scanning: $url"
 
-            # Update job with target URL using node
-            node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('testaro-job.json','utf8')); j.target={url:'$url'}; fs.writeFileSync('scan-job.json',JSON.stringify(j));"
+            # Update job with target URL using node script
+            node update-job.js "$url"
 
             # Run testaro
             npx testaro scan scan-job.json --reporter html > report.html 2>&1
