@@ -17,10 +17,11 @@ jobs:
         with:
           node-version: 'lts/*'
 
-      - name: Install Testaro and Playwright
+      - name: Install Testaro, Playwright, and jq
         run: |
           npm install -g testaro
           npx playwright install chromium
+          apt-get update && apt-get install -y jq
 
       - name: Create Testaro job configuration
         run: |
@@ -54,8 +55,8 @@ jobs:
           while IFS= read -r url; do
             echo "Scanning: $url"
 
-            # Update job with target URL
-            sed "s/\"target\": {}/\"target\": { \"url\": \"$url\" }/" testaro-job.json > scan-job.json
+            # Update job with target URL using jq
+            jq --arg u "$url" '.target = {url: $u}' testaro-job.json > scan-job.json
 
             # Run testaro
             npx testaro scan scan-job.json --reporter html > report.html 2>&1
