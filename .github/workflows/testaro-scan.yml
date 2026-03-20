@@ -1,4 +1,4 @@
-name: Testaro Accessibility Scanner
+name: Accessibility Scanner
 
 on:
   workflow_dispatch:
@@ -20,60 +20,74 @@ jobs:
       - name: Create scanner script
         run: |
            cat > scan.js << 'SCRIPT'
-           const { run } = require('testaro');
-           const fs = require('fs');
+           const { chromium } = require('playwright');
+           const AxeBuilder = require('@axe-core/playwright').AxeBuilder;
+
+           async function scanUrl(page, url) {
+             console.log(`Scanning: ${url}`);
+             try {
+               await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+               await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+               
+               const results = await new AxeBuilder({ page })
+                 .withTags(['wcag2a', 'wcag2aa', 'wcag2aaa'])
+                 .analyze();
+               
+               const violations = results.violations;
+               const violationCount = violations.reduce((sum, v) => sum + v.nodes.length, 0);
+               
+               return {
+                 url,
+                 success: true,
+                 violationCount,
+                 violations: violations.map(v => ({
+                   id: v.id,
+                   impact: v.impact,
+                   description: v.description,
+                   help: v.help,
+                   helpUrl: v.helpUrl,
+                   nodes: v.nodes.length
+                 }))
+               };
+             } catch (error) {
+               return {
+                 url,
+                 success: false,
+                 error: error.message
+               };
+             }
+           }
 
            async function main() {
              const urls = process.env.URLS.split('\n').filter(u => u.trim());
-             const runId = process.env.RUN_ID;
+             const browser = await chromium.launch();
+             const allResults = [];
              let totalViolations = 0;
-             const reports = [];
 
              for (const url of urls) {
-               console.log(`Scanning: ${url}`);
-               
-               const job = {
-                 id: `scan-${runId}`,
-                 what: 'Accessibility scan',
-                 strict: true,
-                 standard: 'only',
-                 device: 'default',
-                 browserID: 'chromium',
-                 target: { url },
-                 acts: [
-                   { type: 'launch' },
-                   { type: 'test', which: 'alfa' },
-                   { type: 'test', which: 'aslint' },
-                   { type: 'test', which: 'axe' },
-                   { type: 'test', which: 'ed11y' },
-                   { type: 'test', which: 'htmlcs' },
-                   { type: 'test', which: 'ibm' },
-                   { type: 'test', which: 'nuVal' },
-                   { type: 'test', which: 'qualWeb' },
-                   { type: 'test', which: 'testaro' }
-                 ]
-               };
-
-               try {
-                 const result = await run(job);
-                 const totals = result.jobData?.totals || [0, 0, 0, 0];
-                 const violations = totals.reduce((a, b) => a + b, 0);
-                 
-                 if (violations > 0) {
-                   console.log(`VIOLATIONS FOUND in ${url}: ${violations}`);
-                   totalViolations += violations;
+               const context = await browser.newContext();
+               const page = await context.newPage();
+               const result = await scanUrl(page, url);
+               allResults.push(result);
+              
+               if (result.success) {
+                 totalViolations += result.violationCount;
+                 if (result.violationCount > 0) {
+                   console.log(`  Found ${result.violationCount} violations`);
                  } else {
-                   console.log(`No violations in ${url}`);
+                   console.log('  No violations found');
                  }
-                 
-                 reports.push({ url, result, totals });
-               } catch (error) {
-                 console.error(`Error scanning ${url}:`, error.message);
-                 reports.push({ url, error: error.message });
+               } else {
+                 console.log(`  Error: ${result.error}`);
                }
+              
+               await context.close();
              }
 
+             await browser.close();
+
              // Generate HTML report
+             const runId = process.env.RUN_ID;
              let html = `<!DOCTYPE html>
            <html>
            <head>
@@ -81,54 +95,78 @@ jobs:
              <style>
                body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
                h1 { color: #333; }
-               .url { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
-               .violations { color: #c00; font-weight: bold; }
-               .pass { color: #0a0; }
-               .details { margin-top: 10px; font-size: 14px; }
-               table { border-collapse: collapse; width: 100%; margin-top: 10px; }
-               th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-               th { background: #f0f0f0; }
+               .summary { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+               .summary h2 { margin-top: 0; }
+               .url { background: #fff; border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; }
+               .url.error { border-color: #c00; }
+               .url h3 { margin-top: 0; word-break: break-all; }
+               .pass { color: #0a0; font-weight: bold; }
+               .fail { color: #c00; font-weight: bold; }
+               .error { color: #900; }
+               .violations { margin-top: 10px; }
+               .violation { background: #fff8f8; padding: 10px; margin: 5px 0; border-left: 3px solid #c00; }
+               .violation h4 { margin: 0 0 5px 0; }
+               .violation .impact { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 12px; }
+               .impact-critical { background: #c00; color: white; }
+               .impact-serious { background: #c60; color: white; }
+               .impact-moderate { background: #ca0; color: black; }
+               .impact-minor { background: #08c; color: white; }
+               a { color: #0366d6; }
              </style>
            </head>
            <body>
              <h1>Accessibility Scan Report</h1>
-             <p>Run ID: ${runId}</p>
-             <p>Total URLs scanned: ${urls.length}</p>
-             <p>Total violations: ${totalViolations}</p>
+             <div class="summary">
+               <h2>Summary</h2>
+               <p><strong>Run ID:</strong> ${runId}</p>
+               <p><strong>URLs scanned:</strong> ${urls.length}</p>
+               <p><strong>Total violations:</strong> <span class="${totalViolations > 0 ? 'fail' : 'pass'}">${totalViolations}</span></p>
+             </div>
            `;
 
-             for (const report of reports) {
-               const hasError = report.error;
-               const totals = report.totals || [0, 0, 0, 0];
-               const violations = totals.reduce((a, b) => a + b, 0);
-               
-               html += `
+             for (const result of allResults) {
+               if (result.success) {
+                 const statusClass = result.violationCount > 0 ? 'fail' : 'pass';
+                 html += `
              <div class="url">
-               <h3>${report.url}</h3>
-               ${hasError 
-                 ? `<p class="violations">Error: ${report.error}</p>`
-                 : violations > 0
-                   ? `<p class="violations">${violations} violations found</p>
-                      <table>
-                        <tr><th>Critical</th><th>Serious</th><th>Moderate</th><th>Minor</th></tr>
-                        <tr><td>${totals[0]}</td><td>${totals[1]}</td><td>${totals[2]}</td><td>${totals[3]}</td></tr>
-                      </table>`
-                   : `<p class="pass">No violations found</p>`
-               }
+               <h3>${result.url}</h3>
+               <p class="${statusClass}">${result.violationCount} violations found</p>`;
+
+                 if (result.violations.length > 0) {
+                   html += `<div class="violations">`;
+                   for (const v of result.violations) {
+                     html += `
+                   <div class="violation">
+                     <h4>${v.id} <span class="impact impact-${v.impact}">${v.impact}</span></h4>
+                     <p>${v.description}</p>
+                     <p><strong>Affected nodes:</strong> ${v.nodes}</p>
+                     <p><a href="${v.helpUrl}" target="_blank">Learn more</a></p>
+                   </div>`;
+                   }
+                   html += `</div>`;
+                 }
+                 html += `</div>`;
+               } else {
+                 html += `
+             <div class="url error">
+               <h3>${result.url}</h3>
+               <p class="error">Error: ${result.error}</p>
              </div>`;
+               }
              }
 
              html += `
            </body>
            </html>`;
 
-             fs.writeFileSync('report.html', html);
+             require('fs').writeFileSync('report.html', html);
+
+             console.log(`\n=== Summary ===`);
+             console.log(`Total violations: ${totalViolations}`);
 
              if (totalViolations > 0) {
-               console.log(`\nTOTAL VIOLATIONS: ${totalViolations}`);
                process.exit(1);
              }
-             console.log('\nNo violations found');
            }
 
            main().catch(err => {
@@ -137,10 +175,10 @@ jobs:
            });
            SCRIPT
 
-      - name: Install Testaro and Playwright
+      - name: Install dependencies
         run: |
           npm init -y
-          npm install testaro playwright
+          npm install playwright @axe-core/playwright
           npx playwright install chromium
 
       - name: Run scanner
