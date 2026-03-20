@@ -1,0 +1,87 @@
+name: Testaro Accessibility Scanner
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: 'Newline-delimited list of URLs to scan'
+        required: true
+        type: string
+
+jobs:
+  accessibility_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 'lts/*'
+
+      - name: Install Testaro and Playwright
+        run: |
+          npm install -g testaro
+          npx playwright install chromium
+
+      - name: Create Testaro job configuration
+        run: |
+           cat > testaro-job.json << 'EOF'
+           {
+             "id": "scan-${{ github.run_id }}",
+             "what": "Accessibility scan",
+             "strict": true,
+             "standard": "only",
+             "device": "default",
+             "browserID": "chromium",
+             "target": {},
+             "acts": [
+               { "type": "launch" },
+               { "type": "test", "which": "alfa" },
+               { "type": "test", "which": "aslint" },
+               { "type": "test", "which": "axe" },
+               { "type": "test", "which": "ed11y" },
+               { "type": "test", "which": "htmlcs" },
+               { "type": "test", "which": "ibm" },
+               { "type": "test", "which": "nuVal" },
+               { "type": "test", "which": "qualWeb" },
+               { "type": "test", "which": "testaro" }
+             ]
+           }
+           EOF
+
+      - name: Run Testaro scans
+        run: |
+          violations=0
+          while IFS= read -r url; do
+            echo "Scanning: $url"
+
+            # Update job with target URL
+            sed "s/\"target\": {}/\"target\": { \"url\": \"$url\" }/" testaro-job.json > scan-job.json
+
+            # Run testaro
+            npx testaro scan scan-job.json --reporter html > report.html 2>&1
+
+            # Check for violations - look for any non-zero counts in totals array
+            # totals format: [critical, serious, moderate, minor] - any value > 0 means violations
+            if grep -qE '"totals":\s*\[[1-9]|[0-9]{2,}' report.html; then
+              echo "VIOLATIONS FOUND in $url"
+              violations=$((violations + 1))
+            fi
+          done <<< "${{ inputs.urls }}"
+
+          if [ $violations -gt 0 ]; then
+            echo "Total URLs with violations: $violations"
+            exit 1
+          fi
+          echo "No violations found"
+
+      - name: Upload HTML Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: a11y-report-${{ github.run_id }}
+          path: report.html
+          retention-days: 30
+
+      - name: Report results
+        run: |
+          echo "Scan completed. Check artifact for detailed HTML report."
