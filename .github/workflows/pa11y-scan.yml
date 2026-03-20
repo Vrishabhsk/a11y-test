@@ -32,10 +32,20 @@ jobs:
       - name: Install Pa11y
         run: npm install -g pa11y
 
+      - name: Create Pa11y config
+        run: |
+          cat > pa11y.json << 'EOF'
+          {
+            "chromeLaunchConfig": {
+              "args": ["--no-sandbox", "--disable-setuid-sandbox"]
+            }
+          }
+          EOF
+
       - name: Run Pa11y scans
         run: |
           echo "${{ inputs.urls }}" | while IFS= read -r url; do
             echo "Scanning: $url"
-            pa11y --standard ${{ inputs.standard }} "$url" || true
+            pa11y --standard ${{ inputs.standard }} --config ./pa11y.json "$url" || true
             echo "---"
           done
