@@ -17,6 +17,6 @@ jobs:
         with:
           urls: ${{ inputs.urls }}
           repository: ${{ github.repository }}
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           cache_key: ${{ github.run_id }}-${{ github.run_number }}
           skip_copilot_assignment: true
