@@ -19,7 +19,7 @@ jobs:
 
       - name: Install Testaro and Playwright
         run: |
-          npm install -g testaro
+          npm install testaro playwright
           npx playwright install chromium
 
       - name: Create Testaro job configuration
