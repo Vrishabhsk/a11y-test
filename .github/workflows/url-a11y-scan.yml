@@ -1,0 +1,22 @@
+name: URL Accessibility Scanner
+
+on:
+  workflow_dispatch:
+    inputs:
+      urls:
+        description: 'Newline-delimited list of URLs to scan'
+        required: true
+        type: string
+
+jobs:
+  accessibility_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Accessibility Scanner
+        uses: github/accessibility-scanner@v2
+        with:
+          urls: ${{ inputs.urls }}
+          repository: ${{ github.repository }}
+          token: ${{ secrets.GH_TOKEN }}
+          cache_key: ${{ github.run_id }}-${{ github.run_number }}
+          skip_copilot_assignment: true
