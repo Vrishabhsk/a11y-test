@@ -1,0 +1,83 @@
+name: Accessibility Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "URL to test"
+        required: true
+        default: "https://rtcamp.com"
+
+jobs:
+  a11y:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        run: |
+          npm init -y
+          npm install playwright @axe-core/playwright pa11y lighthouse
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      # 🔥 AXE + PLAYWRIGHT
+      - name: Run axe-core (Playwright)
+        run: |
+          cat << 'EOF' > axe-test.js
+          const { chromium } = require('playwright');
+          const AxeBuilder = require('@axe-core/playwright').default;
+
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage();
+
+            const url = process.env.TEST_URL;
+            await page.goto(url, { waitUntil: 'networkidle' });
+
+            const results = await new AxeBuilder({ page }).analyze();
+
+            if (results.violations.length > 0) {
+              console.log('❌ Axe violations:');
+              results.violations.forEach(v => {
+                console.log(`- ${v.id}: ${v.help}`);
+              });
+              process.exit(1);
+            } else {
+              console.log('✅ No Axe violations');
+            }
+
+            await browser.close();
+          })();
+          EOF
+
+          TEST_URL="${{ github.event.inputs.url }}" node axe-test.js
+
+      # 🟡 PA11Y
+      - name: Run Pa11y
+        run: |
+          npx pa11y "${{ github.event.inputs.url }}" \
+            --standard WCAG2AA
+
+      # 🔵 LIGHTHOUSE
+      - name: Run Lighthouse
+        run: |
+          npx lighthouse "${{ github.event.inputs.url }}" \
+            --only-categories=accessibility \
+            --chrome-flags="--headless" \
+            --output=json \
+            --output-path=./lighthouse-report.json
+
+      - name: Upload Lighthouse report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: lighthouse-report.json
