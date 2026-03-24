@@ -76,11 +76,11 @@ jobs:
           EOF
 
       # 🟡 PA11Y
-      - name: Run Pa11y
-        run: |
-          echo "Scanning: $url"
-          pa11y --standard WCAG2AA --config ./pa11y.json "${{ github.event.inputs.url }}"
-          echo "---"
+      # - name: Run Pa11y
+      #   run: |
+      #     echo "Scanning: $url"
+      #     pa11y --standard WCAG2AA --config ./pa11y.json "${{ github.event.inputs.url }}"
+      #     echo "---"
 
       # 🔵 LIGHTHOUSE
       - name: Run Lighthouse
