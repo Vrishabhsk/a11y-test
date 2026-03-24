@@ -102,7 +102,15 @@ jobs:
               console.log(r.categories.accessibility.score * 100);
             ")
 
-            echo "✅ Accessibility Score: $score"
+            if [ "$score" -ge 90 ]; then
+              icon="🟢"
+            elif [ "$score" -ge 50 ]; then
+              icon="🟡"
+            else
+              icon="🔴"
+            fi
+
+            echo "$icon Accessibility Score: $score"
             echo "----------------------------------"
           done
 
