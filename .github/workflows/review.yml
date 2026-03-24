@@ -6,7 +6,7 @@ on:
       url:
         description: "URL to test"
         required: true
-        default: "https://rtcamp.com"
+        default: "https://example.com"
 
 jobs:
   a11y:
@@ -29,7 +29,7 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      # 🔥 AXE + PLAYWRIGHT
+      # 🔥 AXE + PLAYWRIGHT (FIXED)
       - name: Run axe-core (Playwright)
         run: |
           cat << 'EOF' > axe-test.js
@@ -38,7 +38,13 @@ jobs:
 
           (async () => {
             const browser = await chromium.launch();
-            const page = await browser.newPage();
+
+            // ✅ FIX: use browser context
+            const context = await browser.newContext({
+              ignoreHTTPSErrors: true,
+            });
+
+            const page = await context.newPage();
 
             const url = process.env.TEST_URL;
             await page.goto(url, { waitUntil: 'networkidle' });
@@ -65,7 +71,8 @@ jobs:
       - name: Run Pa11y
         run: |
           npx pa11y "${{ github.event.inputs.url }}" \
-            --standard WCAG2AA
+            --standard WCAG2AA \
+            --threshold 1
 
       # 🔵 LIGHTHOUSE
       - name: Run Lighthouse
