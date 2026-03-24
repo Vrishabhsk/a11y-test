@@ -3,8 +3,8 @@ name: Accessibility Audit
 on:
   workflow_dispatch:
     inputs:
-      url:
-        description: "URL to test"
+      urls:
+        description: "Comma-separated URLs to test"
         required: true
         default: "https://example.com"
 
@@ -27,7 +27,7 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      # 🔥 AXE + PLAYWRIGHT (FIXED)
+      # 🔥 AXE + PLAYWRIGHT (MULTI URL + DETAILED OUTPUT)
       - name: Run axe-core (Playwright)
         run: |
           cat << 'EOF' > axe-test.js
@@ -36,35 +36,82 @@ jobs:
 
           (async () => {
             const browser = await chromium.launch();
+            const context = await browser.newContext({ ignoreHTTPSErrors: true });
 
-            // ✅ FIX: use browser context
-            const context = await browser.newContext({
-              ignoreHTTPSErrors: true,
-            });
+            const urls = process.env.TEST_URLS.split(',');
 
-            const page = await context.newPage();
+            for (const rawUrl of urls) {
+              const url = rawUrl.trim();
+              if (!url) continue;
 
-            const url = process.env.TEST_URL;
-            await page.goto(url, { waitUntil: 'networkidle' });
+              console.log(`\n🔍 Testing: ${url}`);
 
-            const results = await new AxeBuilder({ page }).analyze();
+              const page = await context.newPage();
+              await page.goto(url, { waitUntil: 'networkidle' });
 
-            if (results.violations.length > 0) {
-              console.log('❌ Axe violations:');
-              results.violations.forEach(v => {
-                console.log(`- ${v.id}: ${v.help}`);
-              });
-            } else {
-              console.log('✅ No Axe violations');
+              const results = await new AxeBuilder({ page }).analyze();
+
+              if (results.violations.length > 0) {
+                console.log(`❌ ${results.violations.length} violations found`);
+
+                results.violations.forEach(v => {
+                  console.log(`\n[${v.id}] ${v.help}`);
+                  console.log(`Impact: ${v.impact}`);
+                  console.log(`Help: ${v.helpUrl}`);
+
+                  v.nodes.forEach(node => {
+                    console.log(`  Target: ${node.target.join(', ')}`);
+                    console.log(`  HTML: ${node.html}`);
+                  });
+                });
+              } else {
+                console.log('✅ No Axe violations');
+              }
+
+              await page.close();
             }
 
             await browser.close();
           })();
           EOF
 
-          TEST_URL="${{ github.event.inputs.url }}" node axe-test.js
-          
-        
+          TEST_URLS="${{ github.event.inputs.urls }}" node axe-test.js
+
+      # 🔵 LIGHTHOUSE (RUN FIRST + PRINT SCORE)
+      - name: Run Lighthouse
+        run: |
+          mkdir -p lighthouse-reports
+
+          urls="${{ github.event.inputs.urls }}"
+          IFS=',' read -ra URL_ARRAY <<< "$urls"
+
+          for url in "${URL_ARRAY[@]}"; do
+            url_trimmed=$(echo $url | xargs)
+            safe_name=$(echo $url_trimmed | sed 's/[^a-zA-Z0-9]/_/g')
+
+            echo "🔍 Lighthouse: $url_trimmed"
+
+            npx lighthouse "$url_trimmed" \
+              --only-categories=accessibility \
+              --chrome-flags="--headless" \
+              --output=json \
+              --output-path="lighthouse-reports/$safe_name.json"
+
+            score=$(node -e "
+              const r = require('./lighthouse-reports/$safe_name.json');
+              console.log(r.categories.accessibility.score * 100);
+            ")
+
+            echo "✅ Accessibility Score: $score"
+            echo "----------------------------------"
+          done
+
+      - name: Upload Lighthouse reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: lighthouse-reports
+
       - name: Create Pa11y config
         run: |
           cat > pa11y.json << 'EOF'
@@ -75,24 +122,19 @@ jobs:
           }
           EOF
 
-      # 🟡 PA11Y
-      # - name: Run Pa11y
-      #   run: |
-      #     echo "Scanning: $url"
-      #     pa11y --standard WCAG2AA --config ./pa11y.json "${{ github.event.inputs.url }}"
-      #     echo "---"
-
-      # 🔵 LIGHTHOUSE
-      - name: Run Lighthouse
+      # 🟡 PA11Y (MULTI URL)
+      - name: Run Pa11y
         run: |
-          npx lighthouse "${{ github.event.inputs.url }}" \
-            --only-categories=accessibility \
-            --chrome-flags="--headless" \
-            --output=json \
-            --output-path=./lighthouse-report.json
+          urls="${{ github.event.inputs.urls }}"
+          IFS=',' read -ra URL_ARRAY <<< "$urls"
 
-      - name: Upload Lighthouse report
-        uses: actions/upload-artifact@v4
-        with:
-          name: lighthouse-report
-          path: lighthouse-report.json
+          for url in "${URL_ARRAY[@]}"; do
+            url_trimmed=$(echo $url | xargs)
+            echo "🔍 Pa11y: $url_trimmed"
+
+            pa11y "$url_trimmed" \
+              --standard WCAG2AA \
+              --config ./pa11y.json
+
+            echo "----------------------------------"
+          done
