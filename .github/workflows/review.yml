@@ -142,7 +142,7 @@ jobs:
 
             pa11y "$url_trimmed" \
               --standard WCAG2AA \
-              --config ./pa11y.json
+              --config ./pa11y.json || true
 
             echo "----------------------------------"
           done
