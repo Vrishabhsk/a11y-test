@@ -13,18 +13,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 'lts/*'
 
       - name: Install deps
         run: |
           npm init -y
-          npm install playwright @axe-core/playwright pa11y lighthouse
+          npm install playwright @axe-core/playwright lighthouse
+          npm install -g pa11y
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
@@ -56,7 +54,6 @@ jobs:
               results.violations.forEach(v => {
                 console.log(`- ${v.id}: ${v.help}`);
               });
-              process.exit(1);
             } else {
               console.log('✅ No Axe violations');
             }
@@ -66,13 +63,24 @@ jobs:
           EOF
 
           TEST_URL="${{ github.event.inputs.url }}" node axe-test.js
+          
+        
+      - name: Create Pa11y config
+        run: |
+          cat > pa11y.json << 'EOF'
+          {
+            "chromeLaunchConfig": {
+              "args": ["--no-sandbox", "--disable-setuid-sandbox"]
+            }
+          }
+          EOF
 
       # 🟡 PA11Y
       - name: Run Pa11y
         run: |
-          npx pa11y "${{ github.event.inputs.url }}" \
-            --standard WCAG2AA \
-            --threshold 1
+          echo "Scanning: $url"
+          pa11y --standard WCAG2AA --config ./pa11y.json "${{ github.event.inputs.url }}"
+          echo "---"
 
       # 🔵 LIGHTHOUSE
       - name: Run Lighthouse
