@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Page</title>
+    <style>
+        .low-contrast {
+            color: #cccccc;
+            background-color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <img src="hero-image.jpg">
+    
+    <div class="low-contrast">
+        Important information with poor contrast
+    </div>
+    
+    <form>
+        <input type="text" placeholder="Enter name">
+        <input type="email" placeholder="Enter email">
+        <button>Submit</button>
+    </form>
+    
+    <a href="#" onclick="doSomething()">Click here</a>
+    <a href="#" onclick="openModal()">Read more</a>
+    
+    <div onclick="navigateHome()" style="cursor: pointer;">
+        Home
+    </div>
+    
+    <table>
+        <tr>
+            <td>Product</td>
+            <td>Price</td>
+        </tr>
+        <tr>
+            <td>Widget</td>
+            <td>$10</td>
+        </tr>
+        <tr>
+            <td>Gadget</td>
+            <td>$20</td>
+        </tr>
+    </table>
+    
+    <video autoplay loop>
+        <source src="promo.mp4" type="video/mp4">
+    </video>
+    
+    <div id="popup" role="dialog" aria-hidden="true">
+        <h2>Special Offer!</h2>
+        <p>Subscribe now for 50% off</p>
+        <button onclick="closePopup()">X</button>
+    </div>
+</body>
+</html>
